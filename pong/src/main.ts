@@ -6,7 +6,7 @@ class client{
     private zone: CanvasView | null;
  
     constructor() {
-        // this.socket = io('http://10.12.13.4:4000');
+        // this.socket = io('http://10.12.12.2:4000');
         this.socket = io('http://localhost:4000');
         this.zone = null;
 
@@ -16,15 +16,17 @@ class client{
         })
         
         document.addEventListener('keydown', (event) => {
+            console.log(event.key);
             if (this.zone !== null) {
                 this.zone.keydown(event.key)
-                this.socket.emit('keydown', event.key ,this.zone.myball.id)
+                // this.socket.emit('keydown', event.key ,this.zone.myball.id)
             }
         })
         document.addEventListener('keyup', (event) => {
+            console.log(event.key);
             if (this.zone !== null) {
                 this.zone.keyup(event.key)
-                this.socket.emit('keyup', event.key ,this.zone.myball.id)
+                // this.socket.emit('keyup', event.key ,this.zone.myball.id)
             }
         })
 
@@ -40,16 +42,30 @@ class client{
         })
         this.socket.on('welcome', (id: string, x:number, y:number) => {
             console.log('welcome', 'id: ' + id, 'x: ' + x, 'y: ' + y)
-            this.zone = new CanvasView('canvas', new Ball(id, x, y, 50, 'white', 1));
+            this.zone = new CanvasView(this.socket, 'canvas', new Ball(id, x, y, 50, 'white', 1));
             this.socket.emit('thanks');
         })
-        this.socket.on('update', (id: string, x: number, y: number) => {
-            if (this.zone !== null && this.zone.myball.id !== id) {
-
-                this.zone.balls[id].xpos = x;
-                this.zone.balls[id].ypos = y;
+        this.socket.on('update', (id: string, x: number, y: number, nb:number) => {
+            // console.log('update ' + nb);
+            if (this.zone !== null) {
+                if ( this.zone.myball.id !== id){
+                    this.zone.balls[id].xpos = x;
+                    this.zone.balls[id].ypos = y;
+                }
+                else
+                {
+                    
+                    if (this.zone.myball.pending[nb][0] !== x || this.zone.myball.pending[nb][1] !== y)
+                    {
+                        this.zone.myball.pending[nb][3] = -1;
+                        this.zone.myball.pending[nb][0] = x;
+                        this.zone.myball.pending[nb][1] = y;
+                        this.zone.myball.validate = nb;
+                    }
+                    else
+                        delete this.zone.myball.pending[nb];
+                }
             }
-
         })
         this.socket.on('newPlayer', (id: string, x: number, y: number) => {
           console.log('newPlayer ' + id)
@@ -57,7 +73,6 @@ class client{
             this.zone.add_ball(new Ball(id, x, y, 50, 'white', 1));
           }
         })
-        
     }
 }
 
