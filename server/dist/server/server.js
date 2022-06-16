@@ -64,8 +64,8 @@ class App {
         this.server = new http.Server(app);
         this.io = new SocketIO.Server(this.server, {
             cors: {
-                origin: 'http://10.12.12.2:3000',
-                // origin: 'http://localhost:3000',
+                // origin: 'http://10.12.12.2:3000',
+                origin: 'http://localhost:3000',
                 credentials: true
             }
         });
