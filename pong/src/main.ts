@@ -1,9 +1,10 @@
 // import {Socket, io} from 'socket.io-client'
 import {Game} from './canvas'
+import P5 from 'p5'
 
-class client{
+class Client{
     // private socket : Socket;
-    private Game : Game;
+    public Game : Game;
  
     constructor() {
         // this.socket = io('http://10.12.12.2:4000');
@@ -12,7 +13,6 @@ class client{
         this.Game = new Game();
         // this.socket.on('connect', function () {
         //     console.log('connect')
-            
         // })
         
         document.addEventListener('keydown', (event) => {
@@ -78,4 +78,19 @@ class client{
     }
 }
 
-new client();
+const sketch = (p5: P5) => {
+    let client = new Client();
+	p5.setup = () => {
+		const canvas = p5.createCanvas(1280, 720);
+		canvas.parent("app");
+		p5.background("Black");
+	};
+	p5.draw = () => {
+        p5.background(51);
+        client.Game.bar.show(p5);
+        client.Game.ball.show(p5);
+
+	};
+};
+
+new P5(sketch);

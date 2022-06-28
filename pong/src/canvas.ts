@@ -1,4 +1,5 @@
 // import {Socket} from 'socket.io-client'
+import P5 from 'p5'
 import Matter from 'matter-js'
 export class Ball {
     public ball : Matter.Body;
@@ -6,40 +7,55 @@ export class Ball {
     
     constructor(x: number, y: number, radius: number) {
         this.r = radius;
-        this.ball = Matter.Bodies.circle(x, y, radius, { restitution: 1, friction: 0, frictionAir : 0, frictionStatic: 0 ,density: 1, render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 1 }});
+        this.ball = Matter.Bodies.polygon(x, y, 6, radius, { restitution: 1, friction: 0, frictionAir: 0, frictionStatic: 0, inertia: Infinity});
+    }
+    show(p : P5) {
+        let pos = this.ball.position;
+        let angle = this.ball.angle;
+        p.push();
+        p.translate(pos.x, pos.y);
+        p.rotate(angle);
+        p.ellipseMode(p.CENTER);
+        p.ellipse(0, 0, this.r, this.r);
+        p.pop();
+    }
+}
+
+export class Bar {
+    public bar : Matter.Body;
+    public width: number;
+    public height: number;
+    
+    constructor(x: number, y: number, width: number, height: number) {
+        this.width = width;
+        this.height = height;
+        this.bar = Matter.Bodies.rectangle(x, y, width, height, { restitution: 1, friction: 0, frictionAir : 0, frictionStatic: 0 , density: Infinity});
     }
 
-    draw(context: CanvasRenderingContext2D) {
-        context.beginPath();
-        context.arc(this.ball.position.x, this.ball.position.y, this.r, 0, 2 * Math.PI);
-        context.fillStyle = 'white';
-        context.fill();
-        context.stroke();
-        context.closePath();
+    show(p : P5) {
+        Matter.Body.setVelocity(this.bar, {x: 0 , y: this.bar.velocity.y});
+        let pos = this.bar.position;
+        let angle = this.bar.angle;
+        p.push();
+        p.translate(pos.x, pos.y);
+        p.rotate(angle);
+        p.rectMode(p.CENTER);
+        p.rect(0, 0, this.width, this.height);
+        p.pop();
     }
 }
 
 export class Game{
     // public socket : Socket;
-    private canvas: HTMLCanvasElement;
-    private ctx: CanvasRenderingContext2D;
     public engine : Matter.Engine;
-    // public world : Matter.World;
-    // public render : Matter.Render;
-    // public runner : Matter.Runner;
     public ball : Ball;
-
+    public bar : Bar;
 
     constructor(){
-        this.canvas = document.createElement('canvas') as HTMLCanvasElement;
-        this.canvas.width = 1280;
-        this.canvas.height = 720;
-        this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
-        document.body.appendChild(this.canvas);
         this.engine = Matter.Engine.create();
-        // this.render = Matter.Render.create({ element: document.body, engine: this.engine, options: { width: 1280, height: 720, background: '#fafafa' }});
         // this.socket = socket;
-        this.ball = new Ball(50, 50, 50);
+        this.ball = new Ball(50, 300, 50);
+        this.bar = new Bar(1230, 300, 10, 100);
         this.engine.gravity.y = 0;
         Matter.World.add(this.engine.world, [
             Matter.Bodies.rectangle(1280/2, 0, 1280, 10, { isStatic: true }),
@@ -48,60 +64,32 @@ export class Game{
             Matter.Bodies.rectangle(1280, 720/2, 10, 720, { isStatic: true })
         ]);
         Matter.Composite.add(this.engine.world, this.ball.ball);
-        // Matter.Render.run(this.render);
+        Matter.Composite.add(this.engine.world, this.bar.bar);
         let runner = Matter.Runner.create();
         Matter.Runner.run(runner, this.engine);
-        Matter.Body.setVelocity(this.ball.ball, {x: -5, y: -5});
-        requestAnimationFrame(this.draw.bind(this));
-    }
-    
-    public createZone(x: number, y: number, width: number, height: number, color: string) {
-        this.ctx.beginPath();
-        this.ctx.rect(x, y, width, height);
-        this.ctx.fillStyle = color;
-        this.ctx.fill();
-        this.ctx.stroke();
-        this.ctx.closePath();
-    }
-    draw (){
-        requestAnimationFrame(this.draw.bind(this));
-        this.ctx.clearRect(0, 0, 1280, 720);
-        this.createZone(0, 0, 1280, 10, 'black');
-        this.ball.draw(this.ctx);
+        Matter.Body.setVelocity(this.ball.ball, {x: 10, y: 5});
     }
     keyup(key: string){
         // console.log(this.ball);
-        let ball = this.ball.ball;
-        if (key === 'ArrowLeft'){
-            Matter.Body.setVelocity(ball, {x: 0, y: ball.velocity.y});
-        }
-        if (key === 'ArrowRight'){
-            Matter.Body.setVelocity(ball, {x: 0, y: ball.velocity.y});
-        }
+        let bar = this.bar.bar;
         if (key === 'ArrowUp'){
-            Matter.Body.setVelocity(ball, {x: ball.velocity.x, y: 0});
+            Matter.Body.setVelocity(bar, {x: bar.velocity.x, y: 0});
         }
         if (key === 'ArrowDown'){
-            Matter.Body.setVelocity(ball, {x: ball.velocity.x, y: 0});
+            Matter.Body.setVelocity(bar, {x: bar.velocity.x, y: 0});
         }
     }
 
     keydown(key: string){
         // console.log(this.ball);
-        let ball = this.ball.ball;
-        if (key === 'ArrowLeft'){
-            Matter.Body.setVelocity(ball, {x: -10, y: ball.velocity.y});
-        }
-       if (key === 'ArrowRight'){
-            Matter.Body.setVelocity(ball, {x: 10, y: ball.velocity.y});
-        }
+        let bar = this.bar.bar;
         if (key === 'ArrowUp'){
-            Matter.Body.setVelocity(ball, {x: ball.velocity.x, y: -10});
+            Matter.Body.setVelocity(bar, {x: bar.velocity.x, y: -10});
         }
         if (key === 'ArrowDown'){
-            Matter.Body.setVelocity(ball, {x: ball.velocity.x, y: 10});
+            Matter.Body.setVelocity(bar, {x: bar.velocity.x, y: 10});
         }
-        console.log(ball);
+        console.log(bar);
     }
 
     
@@ -316,8 +304,8 @@ export class Game{
 //             ++this.nb;
 //         }
 //     }
-//     // public equals(obj: Ball) : boolean { 
-//     //     return this.id === obj.id;
-//     // }
+    // public equals(obj: Ball) : boolean { 
+    //     return this.id === obj.id;
+    // }
 // }
 
