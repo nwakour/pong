@@ -29,13 +29,14 @@ export class Bar {
     constructor(x: number, y: number, width: number, height: number) {
         this.width = width;
         this.height = height;
-        this.bar = Matter.Bodies.rectangle(x, y, width, height, { restitution: 1, friction: 0, frictionAir : 0, frictionStatic: 0 , density: Infinity});
+        this.bar = Matter.Bodies.rectangle(x, y, width, height, { restitution: 1, friction: 0, frictionAir : 0, frictionStatic: 0});
     }
 
     show(p : P5) {
-        Matter.Body.setVelocity(this.bar, {x: 0 , y: this.bar.velocity.y});
         let pos = this.bar.position;
         let angle = this.bar.angle;
+        Matter.Body.setPosition(this.bar, {x: 50 , y: pos.y});
+        Matter.Body.setAngle(this.bar, 6);
         p.push();
         p.translate(pos.x, pos.y);
         p.rotate(angle);
@@ -54,8 +55,8 @@ export class Game{
     constructor(){
         this.engine = Matter.Engine.create();
         // this.socket = socket;
-        this.ball = new Ball(50, 300, 50);
-        this.bar = new Bar(1230, 300, 10, 100);
+        this.ball = new Ball(300, 300, 50);
+        this.bar = new Bar(50, 300, 10, 100);
         this.engine.gravity.y = 0;
         Matter.World.add(this.engine.world, [
             Matter.Bodies.rectangle(1280/2, 0, 1280, 10, { isStatic: true }),
