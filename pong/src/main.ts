@@ -1,95 +1,103 @@
-// import {Socket, io} from 'socket.io-client'
-import {Game} from './canvas'
+import {Socket, io} from 'socket.io-client'
+import {Game, Bar} from './canvas'
 import P5 from 'p5'
+import Matter from 'matter-js'
 
 class Client{
-    // private socket : Socket;
-    public Game : Game;
+    public socket : Socket;
+    public game : Game;
  
     constructor() {
         // this.socket = io('http://10.12.12.2:4000');
-        // this.socket = io('http://localhost:4000');
-        // this.zone = null;
-        this.Game = new Game();
-        // this.socket.on('connect', function () {
-        //     console.log('connect')
-        // })
+        this.socket = io('http://localhost:4000');
+        this.game = new Game();
+        this.socket.on('connect', function () {
+            console.log('connect')
+        })
         
         document.addEventListener('keydown', (event) => {
-            // console.log(event.key);
-            this.Game.keydown(event.key);
-            // if (this.zone !== null) {
-            //     this.zone.keydown(event.key)
-                // this.socket.emit('keydown', event.key ,this.zone.myball.id)
-            // }
+            this.game.keydown(event.key,0);
+            // this.game.keydown(event.key,1);
+            // this.socket.emit('keydown', event.key);
         })
         document.addEventListener('keyup', (event) => {
-            // console.log(event.key);
-            this.Game.keyup(event.key);
-            // if (this.zone !== null) {
-            //     this.zone.keyup(event.key)
-                // this.socket.emit('keyup', event.key ,this.zone.myball.id)
-            // }
+            this.game.keyup(event.key,0);
+            // this.game.keyup(event.key,1);
+            
         })
 
-        // this.socket.on('destroy', (id:string) => {
-        //     console.log('destroy')
-            // if (this.zone !== null) {
-            //     delete this.zone.balls[id];
-            // }
+        // this.socket.on('keydown', (key:string) => {
+        //     this.game.keydown(key,1);
         // })
-        // this.socket.on('message', function (message: any) {
-        //     console.log(message)
-        //     document.body.innerHTML += message + '<br/>'
+        // this.socket.on('keyup', (key:string) => {
+        //     this.game.keyup(key,1);
         // })
-        // this.socket.on('welcome', (id: string, x:number, y:number) => {
-        //     console.log('welcome', 'id: ' + id, 'x: ' + x, 'y: ' + y)
-        //     // this.zone = new CanvasView(this.socket, 'canvas', new Ball(id, x, y, 50, 'white', 1));
-        //     this.socket.emit('thanks');
-        // })
-        // this.socket.on('update', (id: string, x: number, y: number, nb:number) => {
-            // console.log('update ' + nb);
-            // if (this.zone !== null) {
-            //     if ( this.zone.myball.id !== id){
-            //         this.zone.balls[id].xpos = x;
-            //         this.zone.balls[id].ypos = y;
-            //     }
-            //     else
-            //     {
-                    
-            //         if (this.zone.myball.pending[nb][0] !== x || this.zone.myball.pending[nb][1] !== y)
-            //         {
-            //             this.zone.myball.pending[nb][3] = -1;
-            //             this.zone.myball.pending[nb][0] = x;
-            //             this.zone.myball.pending[nb][1] = y;
-            //             this.zone.myball.validate = nb;
-            //         }
-            //         else
-            //             delete this.zone.myball.pending[nb];
-            //     }
-            // }
-        // })
-        // this.socket.on('newPlayer', (id: string, x: number, y: number) => {
-        //   console.log('newPlayer ' + id)
-        //   if (this.zone !== null) {
-        //     this.zone.add_ball(new Ball(id, x, y, 50, 'white', 1));
-        //   }
-        // })
+        this.socket.on('welcome', (x:number, y:number) => {
+            console.log('welcome', 'x: ' + x, 'y: ' + y)
+            this.game.bar.push(new Bar(x, y, 10, 100))
+            // this.game.bar.push(new Bar(700, 300, 10, 100))
+            Matter.World.add(this.game.engine.world, [this.game.bar[0].bar]);
+            // Matter.World.add(this.game.engine.world, [this.game.bar[2].bar]);
+            // Matter.Body.setVelocity(this.game.bar.bar, {x: x - this.game.bar.bar.position.x, y: y - this.game.bar.bar.position.y});
+            // Matter.Body.setPosition(this.game.bar.bar, {x: x, y: y});
+        })
+        this.socket.on('update', (ev : [ pos :[x: number, y:number], v: [vx: number, vy: number], par: [mov: number, t: number]]) => {
+            // console.log('update');
+            this.game.bar[0].corr_events.push(ev);
+            // this.game.bar[2].check(ev);
+        })
+
     }
 }
+const client = new Client();
+const game = client.game;
+
+// Matter.Events.on(game.engine, 'collisionStart', function(event : Matter.IEventCollision<Matter.Engine>) {
+//     const pairs = event.pairs;
+//     for (let i = 0; i < pairs.length; ++i) {
+//         const pair = pairs[i];
+//         if (pair.bodyA === game.ball.ball || pair.bodyB === game.ball.ball) {
+//             if (pair.bodyA === game.bar.bar || pair.bodyB === game.bar.bar) {
+//                const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["bar", new Date().getTime()]];
+//                game.ball.ev.push(ev);
+//                 console.log(ev);
+//             }
+//             else if (pair.bodyA === game.walls["top"] || pair.bodyB === game.walls["top"]) {
+//                const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["top", new Date().getTime()]];
+//                game.ball.ev.push(ev);
+//                console.log(ev);
+//             }
+//             else if (pair.bodyA === game.walls["bottom"] || pair.bodyB === game.walls["bottom"]) {
+//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["bottom", new Date().getTime()]];
+//                 game.ball.ev.push(ev);
+//                 console.log(ev);
+//             }
+//             else if (pair.bodyA === game.walls["left"] || pair.bodyB === game.walls["left"]) {
+//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["left", new Date().getTime()]];
+//                 game.ball.ev.push(ev);
+//                 console.log(ev);
+//             }
+//             else if (pair.bodyA === game.walls["right"] || pair.bodyB === game.walls["right"]) {
+//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["right", new Date().getTime()]];
+//                 game.ball.ev.push(ev);
+//                 console.log(ev);
+//             }
+//             else
+//                 console.log("collision with something else");
+//         }
+//     }
+// }.bind(this));
 
 const sketch = (p5: P5) => {
-    let client = new Client();
 	p5.setup = () => {
 		const canvas = p5.createCanvas(1280, 720);
+        p5.frameRate(60);
 		canvas.parent("app");
 		p5.background("Black");
 	};
 	p5.draw = () => {
         p5.background(51);
-        client.Game.bar.show(p5);
-        client.Game.ball.show(p5);
-
+        game.update(p5, client.socket);
 	};
 };
 
