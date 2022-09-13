@@ -79,13 +79,14 @@ const game = {};
 //             }
 //         }
 // }
-const game_update = function (game, sock) {
+const game_update = function (game) {
     if (game.lastframe === null) {
         game.lastframe = new Date().getTime();
         return;
     }
-    const diff = new Date().getTime() - game.lastframe;
-    game.lastframe = new Date().getTime();
+    const now = new Date().getTime();
+    const diff = now - game.lastframe;
+    game.lastframe = now;
     let py = game.bar.bar.position.y + (game.bar.mov * diff);
     if (py < 51)
         py = 51;
@@ -93,24 +94,58 @@ const game_update = function (game, sock) {
         py = 669;
     matter_js_1.default.Body.setVelocity(game.bar.bar, { x: 0, y: py - game.bar.bar.position.y });
     matter_js_1.default.Body.setPosition(game.bar.bar, { x: game.bar.bar.position.x, y: py });
-    if (game.bar.last !== game.bar.mov) {
-        const ev = [[game.bar.bar.position.x, game.bar.bar.position.y], [game.bar.bar.velocity.x, game.bar.bar.velocity.y], [game.bar.mov, diff]];
-        sock.emit('update', ev);
-        game.bar.last = game.bar.mov;
-        console.log(ev);
-    }
+    // if (game.bar.last !== 0 ||  game.bar.mov!==0 ) {
+    //     // const ev : Snap = new Snap(, game.bar.bar.position.y, game.bar.bar.velocity.x, game.bar.bar.velocity.y, game.lastframe , game.bar.mov);
+    //     sock.emit('update', game.bar.check_nb ,game.bar.bar.position.x, game.bar.bar.position.y, game.bar.bar.velocity.x, game.bar.bar.velocity.y, game.lastframe , game.bar.mov);
+    //     game.bar.last = game.bar.mov;
+    //     console.log(game.bar.check_nb ,game.bar.bar.position.x, game.bar.bar.position.y, game.bar.bar.velocity.x, game.bar.bar.velocity.y, game.lastframe , game.bar.mov);
+    //     ++game.bar.check_nb;
+    // }
 };
 io.on('connection', (socket) => {
     console.log('a user connected : ' + socket.id);
     socket.emit('welcome', 50, 300);
     game[socket.id] = new simulation_1.Game();
-    const inter = setInterval(game_update.bind(this), 1000 / 60, game[socket.id], socket);
-    // socket.on('keydown', (key: string) => {
-    //     game[socket.id].keydown(key)
-    //     socket.emit('keydown', key)
-    // })
-    socket.on('move', (mov) => {
-        game[socket.id].bar.mov = mov;
+    const inter = setInterval(game_update.bind(this), 1000 / 60, game[socket.id]);
+    socket.on('keydown', (key) => {
+        if (key === 'ArrowUp') {
+            game[socket.id].bar.mov = -1;
+            game[socket.id].bar.key['ArrowUp'] = 1;
+        }
+        else if (key === 'ArrowDown') {
+            game[socket.id].bar.mov = 1;
+            game[socket.id].bar.key['ArrowDown'] = 1;
+        }
+        else
+            return;
+        game[socket.id].lastkeytime = new Date().getTime();
+        socket.emit('update', game[socket.id].bar.check_nb, game[socket.id].bar.bar.position.x, game[socket.id].bar.bar.position.y, game[socket.id].bar.bar.velocity.x, game[socket.id].bar.bar.velocity.y, game[socket.id].lastkeytime, game[socket.id].bar.mov);
+        game[socket.id].bar.last = game[socket.id].bar.mov;
+        console.log(game[socket.id].bar.check_nb, game[socket.id].bar.bar.position.x, game[socket.id].bar.bar.position.y, game[socket.id].bar.bar.velocity.x, game[socket.id].bar.bar.velocity.y, game[socket.id].lastkeytime, game[socket.id].bar.mov);
+        ++game[socket.id].bar.check_nb;
+    });
+    socket.on('keyup', (key) => {
+        if (key === 'ArrowUp') {
+            game[socket.id].bar.key['ArrowUp'] = 0;
+            if (game[socket.id].bar.key['ArrowDown'] === 1)
+                game[socket.id].bar.mov = 1;
+            else
+                game[socket.id].bar.mov = 0;
+        }
+        else if (key === 'ArrowDown') {
+            game[socket.id].bar.key['ArrowDown'] = 0;
+            if (game[socket.id].bar.key['ArrowUp'] === 1)
+                game[socket.id].bar.mov = -1;
+            else
+                game[socket.id].bar.mov = 0;
+        }
+        else
+            return;
+        game[socket.id].lastkeytime = new Date().getTime();
+        socket.emit('update', game[socket.id].bar.check_nb, game[socket.id].bar.bar.position.x, game[socket.id].bar.bar.position.y, game[socket.id].bar.bar.velocity.x, game[socket.id].bar.bar.velocity.y, game[socket.id].lastkeytime, game[socket.id].bar.mov);
+        game[socket.id].bar.last = game[socket.id].bar.mov;
+        console.log(game[socket.id].bar.check_nb, game[socket.id].bar.bar.position.x, game[socket.id].bar.bar.position.y, game[socket.id].bar.bar.velocity.x, game[socket.id].bar.bar.velocity.y, game[socket.id].lastkeytime, game[socket.id].bar.mov);
+        ++game[socket.id].bar.check_nb;
     });
     // Matter.Events.on(game[socket.id].engine, 'collisionStart', (event) => { check_collision(event, game[socket.id], socket) });
     socket.on('disconnect', () => {

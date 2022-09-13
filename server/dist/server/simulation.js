@@ -5,6 +5,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Game = exports.Bar = exports.Ball = void 0;
 const matter_js_1 = __importDefault(require("matter-js"));
+// export class Snap{
+//     public x : number;
+//     public y : number;
+//     public vx : number;
+//     public vy : number;
+//     public t : number;
+//     public mov : number;
+//     constructor(x : number, y : number, vx : number, vy : number, t : number, mov : number) {
+//         this.x = x;
+//         this.y = y;
+//         this.vx = vx;
+//         this.vy = vy;
+//         this.t = t;
+//         this.mov = mov;
+//     }
+// }
 class Ball {
     constructor(x, y, radius) {
         Object.defineProperty(this, "ball", {
@@ -48,7 +64,12 @@ class Bar {
             writable: true,
             value: void 0
         });
-        // public key: { [x: string]: number } = {};
+        Object.defineProperty(this, "key", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: {}
+        });
         Object.defineProperty(this, "mov", {
             enumerable: true,
             configurable: true,
@@ -61,13 +82,20 @@ class Bar {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "check_nb", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         this.width = width;
         this.height = height;
         this.bar = matter_js_1.default.Bodies.rectangle(x, y, width, height, { isStatic: true });
-        // this.key["ArrowDown"] = 0;
-        // this.key["ArrowUp"] = 0;
+        this.key["ArrowDown"] = 0;
+        this.key["ArrowUp"] = 0;
         this.mov = 0;
         this.last = 0;
+        this.check_nb = 0;
     }
 }
 exports.Bar = Bar;
@@ -110,10 +138,16 @@ class Game {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "lastkeytime", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         this.engine = matter_js_1.default.Engine.create();
         this.start = false;
         // this.ball = new Ball(300, 300, 20);
-        this.bar = new Bar(400, 300, 10, 100);
+        this.bar = new Bar(50, 300, 10, 100);
         this.engine.gravity.y = 0;
         this.walls["top"] = matter_js_1.default.Bodies.rectangle(1280 / 2, 0, 1280, 10, { isStatic: true });
         this.walls["bottom"] = matter_js_1.default.Bodies.rectangle(1280 / 2, 720, 1280, 10, { isStatic: true });
@@ -124,6 +158,7 @@ class Game {
         this.runner = matter_js_1.default.Runner.create();
         matter_js_1.default.Runner.run(this.runner, this.engine);
         this.lastframe = null;
+        this.lastkeytime = 0;
         // Matter.Body.setVelocity(this.ball.ball, {x: -10, y: 0});
         // setInterval(this.update.bind(this), 1000/60);
     }
