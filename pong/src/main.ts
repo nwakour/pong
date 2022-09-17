@@ -3,6 +3,39 @@ import {Game, Bar, Snap} from './canvas'
 import P5 from 'p5'
 import Matter from 'matter-js'
 
+const check_collision = function(event : Matter.IEventCollision<Matter.Engine>) {
+    const pairs = event.pairs;
+    for (let i = 0; i < pairs.length; ++i) {
+        const pair = pairs[i];
+        if (pair.bodyA === game.ball.ball || pair.bodyB === game.ball.ball) {
+			if (pair.bodyA === game.walls["top"] || pair.bodyB === game.walls["top"]) {
+				console.log("top");
+			   game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 0, new Date().getTime()));
+			}
+			else if (pair.bodyA === game.walls["bottom"] || pair.bodyB === game.walls["bottom"]) {
+				console.log("bottom");
+				game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 1, new Date().getTime()));
+			}
+			else if (pair.bodyA === game.walls["left"] || pair.bodyB === game.walls["left"]) {
+				console.log("left");
+				game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 2, new Date().getTime()));
+				
+			}
+			else if (pair.bodyA === game.walls["right"] || pair.bodyB === game.walls["right"]) {
+				console.log("right");
+				game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 3, new Date().getTime()));
+			}
+			else
+			{
+				console.log("bar");
+				game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 4, new Date().getTime()));
+			}
+			console.log(game.ball.pending_events[game.ball.pending_events.length - 1]);
+			++game.ball.nb_events_pending;
+		}
+    }
+}
+
 class Client{
 	public socket : Socket;
 	public game : Game;
@@ -26,17 +59,48 @@ class Client{
 		this.socket.on('welcome', (x:number, y:number) => {
 			console.log('welcome', 'x: ' + x, 'y: ' + y)
 			this.game.bar.push(new Bar(x, y, 10, 100))
-			Matter.World.add(this.game.engine.world, [this.game.bar[0].bar]);
 		})
-		this.socket.on('update', (nb :number, x :number, y: number, vx: number, vy: number, t : number, mov :number) => {
-			console.log('update', nb, x, y, vx, vy, t, mov)
-			this.game.bar[0].corr_events.set(nb, new Snap(x, y, vx, vy, t, mov));
-			this.game.bar[0].check();
+		this.socket.on('update', (events : Snap[][], ball_events :Snap[]) => {
+			console.log('update')
+			for (let i = 0; i < events.length; ++i){
+				if (events[i][0].x === game.bar[0].x)
+				{
+					this.game.bar[0].corr_events = events[i];
+					this.game.bar[0].check();
+				}
+				else
+				{
+					this.game.bar[1].corr_events = events[i];
+					this.game.bar[1].check();
+				}
+			}
+			if (ball_events.length > 0)
+			{
+				this.game.ball.corr_events = ball_events;
+				this.game.ball.check();
+			}
 		})
-		this.socket.on('spectate', (nb :number, x :number, y: number, vx: number, vy: number, t : number, mov :number) => {
-			console.log('spectate', nb, x, y, vx, vy, t, mov)
-			this.game.bar[1].corr_events.set(nb, new Snap(x, y, vx, vy, t, mov));
-			this.game.bar[1].check();
+		this.socket.on('en_key', (eve : string, key: string) => {
+			if (eve == "keydown")
+				this.game.keydown(key, 1);
+			else
+				this.game.keyup(key, 1);
+		})
+
+		this.socket.on('remove', () => {
+			console.log('remove')
+			Matter.Composite.remove(this.game.engine.world, this.game.bar[0].bar);
+			Matter.Composite.remove(this.game.engine.world, this.game.bar[1].bar);
+			Matter.Composite.remove(this.game.engine.world, this.game.ball.ball);
+			this.game.bar.pop();
+			Matter.Events.off(this.game.engine, 'collisionEnd', check_collision);
+		})
+		this.socket.on('start', (vx: number, vy: number) => {
+			console.log('start ' + vx + ' ' + vy)
+			this.game.start();
+			Matter.Body.setVelocity(this.game.ball.ball, {x: vx , y: vy});
+			Matter.Events.on(game.engine, 'collisionEnd', check_collision);
+
 		})
 	}
 }
@@ -48,33 +112,28 @@ const game = client.game;
 //     for (let i = 0; i < pairs.length; ++i) {
 //         const pair = pairs[i];
 //         if (pair.bodyA === game.ball.ball || pair.bodyB === game.ball.ball) {
-//             if (pair.bodyA === game.bar.bar || pair.bodyB === game.bar.bar) {
-//                const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["bar", new Date().getTime()]];
-//                game.ball.ev.push(ev);
-//                 console.log(ev);
-//             }
-//             else if (pair.bodyA === game.walls["top"] || pair.bodyB === game.walls["top"]) {
-//                const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["top", new Date().getTime()]];
-//                game.ball.ev.push(ev);
-//                console.log(ev);
+//             if (pair.bodyA === game.walls["top"] || pair.bodyB === game.walls["top"]) {
+// 				console.log("top");
+//                game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 0));
 //             }
 //             else if (pair.bodyA === game.walls["bottom"] || pair.bodyB === game.walls["bottom"]) {
-//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["bottom", new Date().getTime()]];
-//                 game.ball.ev.push(ev);
-//                 console.log(ev);
+// 				console.log("bottom");
+//                 game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 1));
 //             }
 //             else if (pair.bodyA === game.walls["left"] || pair.bodyB === game.walls["left"]) {
-//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["left", new Date().getTime()]];
-//                 game.ball.ev.push(ev);
-//                 console.log(ev);
+// 				console.log("left");
+//                 game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 2));
 //             }
 //             else if (pair.bodyA === game.walls["right"] || pair.bodyB === game.walls["right"]) {
-//                 const ev : [[number, number], [number, number], [string, number]] = [[game.ball.ball.position.x, game.ball.ball.position.y], [game.ball.ball.velocity.x, game.ball.ball.velocity.y], ["right", new Date().getTime()]];
-//                 game.ball.ev.push(ev);
-//                 console.log(ev);
+// 				console.log("right");
+//                 game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 3));
 //             }
 //             else
-//                 console.log("collision with something else");
+// 			{
+// 				console.log("bar");
+//                 game.ball.pending_events.push(new Snap(game.ball.nb_events_pending, game.ball.ball.position.x, game.ball.ball.position.y, game.ball.ball.velocity.x, game.ball.ball.velocity.y, 4));
+// 			}
+// 			++game.ball.nb_events_pending;
 //         }
 //     }
 // }.bind(this));

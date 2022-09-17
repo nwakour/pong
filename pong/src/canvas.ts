@@ -2,34 +2,46 @@ import P5 from 'p5'
 import Matter from 'matter-js'
 
 export class Snap{
+	public check_nb : number;
 	public x : number;
 	public y : number;
 	public vx : number;
 	public vy : number;
-	public t : number;
 	public mov : number;
-	constructor(x : number, y : number, vx : number, vy : number, t : number, mov : number) {
+	public t: number;
+	constructor(check_nb: number, x : number, y : number, vx : number, vy : number, mov : number, t: number) {
+		this.check_nb = check_nb;
 		this.x = x;
 		this.y = y;
 		this.vx = vx;
 		this.vy = vy;
-		this.t = t;
 		this.mov = mov;
+		this.t = t;
 	}
 }
 
 export class Ball {
 	public ball : Matter.Body;
+	public x : number;
+	public y : number;
 	public r: number;
-	public ev :[[number, number], [number, number], [string, number]][] = [];
+	public pending_events : Snap[] = [];
+	public corr_events : Snap[] = [];
+	public nb_events_corrected : number;
+	public nb_events_pending: number;
 	constructor(x: number, y: number, radius: number) {
+		this.x = x;
+		this.y = y;
 		this.r = radius;
 		this.ball = Matter.Bodies.polygon(x, y, 6, radius, {inertia: Infinity,
 			friction: 0,
 			frictionStatic: 0,
 			frictionAir: 0,
 			restitution: 1});
+		this.nb_events_corrected = 0;
+		this.nb_events_pending = 0;
 	}
+
 	show(p : P5) {
 		let pos = this.ball.position;
 		let angle = this.ball.angle;
@@ -40,22 +52,87 @@ export class Ball {
 		p.ellipse(0, 0, this.r, this.r);
 		p.pop();
 	}
+
+	reset()
+	{
+		Matter.Body.setVelocity(this.ball, {x: this.x - this.ball.position.x, y: this.y - this.ball.position.y});
+		Matter.Body.setPosition(this.ball, {x: this.x, y: this.y});
+	}
+	check(){
+		if (this.corr_events.length === 0)
+			return;
+		let new_t = new Date().getTime();
+		let x = 0;
+		let y = 0;
+		let t = 0;
+		let vx = 0;
+		let vy = 0;
+		
+		for (let i = 0; i < this.corr_events.length; ++i)
+		{
+			x = this.corr_events[i].x;
+			y = this.corr_events[i].y;
+			vx = this.corr_events[i].vx;
+			vy = this.corr_events[i].vy;
+			++this.nb_events_corrected;
+			// if (this.pending_events.length > 0)
+			t = this.pending_events[0].t;
+			// else
+			// {
+			// 	console.log("t not found");
+			// 	t = this.corr_events[i].t;
+			// }
+			this.pending_events.shift();
+		}
+		this.corr_events = [];
+
+		console.log("Corrected "  + x + " " + y + " " + vx + " " + vy + " " + t);
+		console.log(this.ball.position)
+		console.log(this.ball.position.x, this.ball.position.y, this.ball.velocity.x, this.ball.velocity.y);
+		console.log(this.ball.velocity)
+		console.log(this.ball);
+		console.log('after correction')
+		const new_vel = this.ball.velocity;
+		console.log(new_vel);
+		console.log(new_vel.x);
+		console.log(new_vel.y);
+		console.log(JSON.parse(JSON.stringify(this.ball.velocity)))
+		for (let i = 0; i < this.pending_events.length; ++i)
+		{
+			x += vx * (this.pending_events[i].t - t);
+			y += vy * (this.pending_events[i].t - t);
+			t = this.pending_events[i].t;
+			vx = this.pending_events[i].vx;
+			vy = this.pending_events[i].vy;
+		}
+		// console.log(x + " " + y + " " + (new_t - t));
+		x += vx * (new_t - t);
+		y += vy * (new_t - t);
+		// console.log(x + " " + y + " " + (new_t - t));
+		Matter.Body.setVelocity(this.ball, {x: vx , y: vy});
+		// Matter.Body.setPosition(this.ball, {x: x, y: y});
+		// console.log(this.ball.position)
+		// console.log(this.ball.velocity)
+	}
 }
 
 export class Bar {
 	public bar : Matter.Body;
+	public x : number;
+	public y : number;
 	public width: number;
 	public height: number;
 	public key: { [x: string]: number } = {};
 	public mov : number;
 	public last : number;
-	public pending_events = new Map<number, Snap>();
-	public corr_events = new Map<number, Snap>();
+	public pending_events : Snap[] = [];
+	public corr_events : Snap[] = [];
 	public nb_events_pending : number;
 	public nb_events_corrected : number;
 	public lastframe : number | null;
-	public lastkeytime : number;
 	constructor(x: number, y: number, width: number, height: number) {
+		this.x = x;
+		this.y = y;
 		this.width = width;
 		this.height = height;
 		this.bar = Matter.Bodies.rectangle(x, y, width, height, {isStatic: true});
@@ -66,9 +143,7 @@ export class Bar {
 		this.nb_events_pending = 0;
 		this.nb_events_corrected = 0;
 		this.lastframe = null;
-		this.lastkeytime = 0;
 	}
-
 	show(p : P5) {
 		let pos = this.bar.position;
 		let angle = this.bar.angle;
@@ -79,38 +154,42 @@ export class Bar {
 		p.rect(0, 0, this.width, this.height);
 		p.pop();
 	}
-
+	reset(){
+		console.log("reset");
+		this.mov = 0;
+		this.last = 0;
+		this.nb_events_pending = 0;
+		this.nb_events_corrected = 0;
+		this.lastframe = null;
+		// this.lastkeytime = 0;
+		this.pending_events = [];
+		this.corr_events = [];
+		this.key["ArrowDown"] = 0;
+		this.key["ArrowUp"] = 0;
+		Matter.Body.setVelocity(this.bar, {x: this.x - this.bar.position.x, y: this.y - this.bar.position.y});
+		Matter.Body.setPosition(this.bar, {x: this.x, y: this.y});
+		Matter.Body.setVelocity(this.bar, {x: 0, y: 0});
+	}
 	check(){
-		if (!(this.corr_events.has(this.nb_events_corrected) && this.pending_events.has(this.nb_events_corrected)))
+		if (this.corr_events.length === 0)
 			return;
 		let x = 0;
 		let y = 0;
-		let smt_changed : boolean = false;
-		while (this.corr_events.has(this.nb_events_corrected) && this.pending_events.has(this.nb_events_corrected))
+		let t = 0;
+		for (let i = 0; i < this.corr_events.length; ++i)
 		{
-			const last_corr_event = this.corr_events.get(this.nb_events_corrected);
-			if (last_corr_event !== undefined) {
-				x = last_corr_event.x;
-				y = last_corr_event.y;
-				smt_changed = true;
-				console.log("corrected " + this.nb_events_corrected + " x " + x + " y " + y + " vx " + last_corr_event.vx + " vy " + last_corr_event.vy + " t " + last_corr_event.t + " mov " + last_corr_event.mov);
-				console.log("delete pending " + this.pending_events.delete(this.nb_events_corrected));
-				console.log("delete corr " + this.corr_events.delete(this.nb_events_corrected));
-				++this.nb_events_corrected;
-			}
+			x = this.corr_events[i].x;
+			y = this.corr_events[i].y;
+			++this.nb_events_corrected;
+			t = this.pending_events[0].t;
+			this.pending_events.shift();
 		}
-		if (smt_changed === false)
-			return;
-		for (let i = this.nb_events_corrected; i < this.nb_events_pending; ++i)
+		this.corr_events = [];
+
+		for (let i = 0; i < this.pending_events.length; ++i)
 		{
-			const last_pending_event = this.pending_events.get(i);
-			if (last_pending_event === undefined)
-			{
-				console.log("missing event");
-				return;
-			}
-			x += last_pending_event.vx;
-			y += last_pending_event.vy;
+			y += (this.pending_events[i].t - t) * this.pending_events[i].mov;
+			t = this.pending_events[i].t;
 			if (y < 51)
 				y = 51;
 			else if (y > 669)
@@ -124,6 +203,7 @@ export class Bar {
 export class Game{
 	public engine : Matter.Engine;
 	public bar : Bar[] = [];
+	public ball : Ball;
 	public walls: { [x: string]: Matter.Body } = {};
 	
 	constructor(){
@@ -133,7 +213,8 @@ export class Game{
 		this.walls["bottom"] = Matter.Bodies.rectangle(1280/2, 720, 1280, 10, { isStatic: true });
 		this.walls["left"] = Matter.Bodies.rectangle(0, 720/2, 10, 720, { isStatic: true });
 		this.walls["right"] = Matter.Bodies.rectangle(1280, 720/2, 10, 720, { isStatic: true });
-		Matter.World.add(this.engine.world, [this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
+		this.ball = new Ball(1280/2, 720/2, 10);
+		Matter.Composite.add(this.engine.world, [this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
 		Matter.Runner.run(Matter.Runner.create(), this.engine);
 	}
 
@@ -148,11 +229,10 @@ export class Game{
 		}
 		else
 			return;
-		this.bar[id].lastkeytime = new Date().getTime();
-		this.bar[id].pending_events.set(this.bar[id].nb_events_pending, new Snap(this.bar[id].bar.position.x, this.bar[id].bar.position.y, this.bar[id].bar.velocity.x, this.bar[id].bar.velocity.y, this.bar[id].lastkeytime, this.bar[id].mov));
+		this.bar[id].pending_events.push(new Snap(this.bar[id].nb_events_pending, this.bar[id].bar.position.x, this.bar[id].bar.position.y, this.bar[id].bar.velocity.x, this.bar[id].bar.velocity.y, this.bar[id].last, new Date().getTime()));
 		this.bar[id].last = this.bar[id].mov;
 		console.log("new event " + this.bar[id].nb_events_pending);
-		console.log(this.bar[id].pending_events.get(this.bar[id].nb_events_pending));
+		console.log(this.bar[id].pending_events[this.bar[id].pending_events.length - 1]);
 		++this.bar[id].nb_events_pending;
 	}
 
@@ -173,14 +253,23 @@ export class Game{
 		}
 		else
 			return;
-		this.bar[id].lastkeytime = new Date().getTime();
-		this.bar[id].pending_events.set(this.bar[id].nb_events_pending, new Snap(this.bar[id].bar.position.x, this.bar[id].bar.position.y, this.bar[id].bar.velocity.x, this.bar[id].bar.velocity.y, this.bar[id].lastkeytime, this.bar[id].mov));
+		this.bar[id].pending_events.push(new Snap(this.bar[id].nb_events_pending, this.bar[id].bar.position.x, this.bar[id].bar.position.y, this.bar[id].bar.velocity.x, this.bar[id].bar.velocity.y, this.bar[id].last, new Date().getTime()));
 		this.bar[id].last = this.bar[id].mov;
 		console.log("new event " + this.bar[id].nb_events_pending);
-		console.log(this.bar[id].pending_events.get(this.bar[id].nb_events_pending));
+		console.log(this.bar[id].pending_events);
 		++this.bar[id].nb_events_pending;
 	}
-
+	start ()
+	{
+		for (let i = 0; i < this.bar.length; i++)
+		{
+			Matter.Composite.add(this.engine.world, [this.bar[i].bar]);
+			
+			this.bar[i].reset();
+		}
+		Matter.Composite.add(this.engine.world, [this.ball.ball]);
+		this.ball.reset();
+	}
 	update(p: P5){
 		
 		for (let i = 0; i < this.bar.length; i++)
@@ -201,6 +290,7 @@ export class Game{
 			Matter.Body.setVelocity(this.bar[i].bar, {x: 0, y: py - this.bar[i].bar.position.y});
 			Matter.Body.setPosition(this.bar[i].bar, {x: this.bar[i].bar.position.x, y: py});
 			this.bar[i].show(p);
+			this.ball.show(p);
 		}
 	}
 }
