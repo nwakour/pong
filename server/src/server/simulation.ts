@@ -1,20 +1,20 @@
 import Matter from 'matter-js'
 
 export class Snap{
-	public check_nb : number;
 	public x : number;
 	public y : number;
 	public vx : number;
 	public vy : number;
 	public mov : number;
+	public last : number;
 	public t : number;
-	constructor(check_nb: number ,x : number, y : number, vx : number, vy : number, mov : number, t: number) {
-		this.check_nb = check_nb;
+	constructor(x : number, y : number, vx : number, vy : number, mov : number, last : number,t: number) {
 		this.x = x;
 		this.y = y;
 		this.vx = vx;
 		this.vy = vy;
 		this.mov = mov;
+		this.last = last;
 		this.t = t;
 	}
 }
@@ -25,7 +25,6 @@ export class Ball {
 	public x : number;
 	public y : number;
 	public pending_events : Snap[] = [];
-	public check_nb : number;
 	public lastframe : number | null;
 	constructor(x: number, y: number, radius: number) {
 		this.x = x;
@@ -36,7 +35,6 @@ export class Ball {
 			frictionStatic: 0,
 			frictionAir: 0,
 			restitution: 1});
-		this.check_nb = 0;
 		this.lastframe = null;
 	}
 	reset()
@@ -53,23 +51,26 @@ export class Bar {
 	public y : number;
 	public width: number;
 	public height: number;
-	public key: { [x: string]: number } = {};
+	// public key: { [x: string]: number } = {};
 	public pending_events : Snap[] = [];
 	public mov : number;
 	public last : number;
-	public check_nb : number;
 	public lastframe : number | null;
 	constructor(x: number, y: number, width: number, height: number) {
 		this.x = x;
 		this.y = y;
 		this.width = width;
 		this.height = height;
-		this.bar = Matter.Bodies.rectangle(x, y, width, height, {isStatic: true});
-		this.key["ArrowDown"] = 0;
-		this.key["ArrowUp"] = 0;
+		this.bar = Matter.Bodies.rectangle(x, y, width, height, {inertia: Infinity,
+			friction: 1,
+			restitution: 1,
+			mass: Infinity,
+			density: Infinity
+		});
+		// this.key["ArrowDown"] = 0;
+		// this.key["ArrowUp"] = 0;
 		this.mov = 0;
 		this.last = 0;
-		this.check_nb = 0;
 		this.lastframe = null;
 	}
 	public reset()
@@ -77,10 +78,9 @@ export class Bar {
 		console.log("reset");
 		this.mov = 0;
 		this.last = 0;
-		this.check_nb = 0;
 		this.lastframe = null;
-		this.key["ArrowDown"] = 0;
-		this.key["ArrowUp"] = 0;
+		// this.key["ArrowDown"] = 0;
+		// this.key["ArrowUp"] = 0;
 		Matter.Body.setVelocity(this.bar, {x: this.x - this.bar.position.x, y: this.y - this.bar.position.y});
 		Matter.Body.setPosition(this.bar, {x: this.x, y: this.y});
 		Matter.Body.setVelocity(this.bar, {x: 0, y: 0});
@@ -93,12 +93,10 @@ export class Game{
 	public bars = new Map<string, Bar>()
 	public walls: { [x: string]: Matter.Body } = {};
 	public runner : Matter.Runner;
-	public inter : NodeJS.Timer | null = null;
-	public inter_updates : NodeJS.Timer | null = null;
+	public last_frame : number;
 	constructor(){
 		console.log("Game created");
 		this.engine = Matter.Engine.create();
-		// this.bar = new Bar(50, 300, 10, 100);
 		this.engine.gravity.y = 0;
 		this.walls["top"] = Matter.Bodies.rectangle(1280/2, 0, 1280, 10, { isStatic: true });
 		this.walls["bottom"] = Matter.Bodies.rectangle(1280/2, 720, 1280, 10, { isStatic: true });
@@ -107,8 +105,7 @@ export class Game{
 		this.ball = new Ball(1280/2, 720/2, 10);
 		Matter.Composite.add(this.engine.world, [this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
 		this.runner = Matter.Runner.create();
-		Matter.Runner.run(this.runner, this.engine);
-		// setInterval(this.update.bind(this), 1000/60);
+		this.last_frame = 0;
 	}
 
 	public addBar(id: string, x: number, y: number, width: number, height: number){
@@ -126,9 +123,7 @@ export class Game{
 	public start(){
 		console.log("Game started");
 		for (const bar of this.bars.values())
-		{
 			bar.reset();
-		}
 		this.ball.reset();
 		Matter.World.add(this.engine.world, this.ball.ball);
 	}

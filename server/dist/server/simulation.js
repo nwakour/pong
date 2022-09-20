@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Game = exports.Bar = exports.Ball = exports.Snap = void 0;
 const matter_js_1 = __importDefault(require("matter-js"));
 class Snap {
-    constructor(check_nb, x, y, vx, vy, mov, t) {
+    constructor(check_nb, x, y, vx, vy, mov, last, t) {
         Object.defineProperty(this, "check_nb", {
             enumerable: true,
             configurable: true,
@@ -43,6 +43,12 @@ class Snap {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "last", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         Object.defineProperty(this, "t", {
             enumerable: true,
             configurable: true,
@@ -55,6 +61,7 @@ class Snap {
         this.vx = vx;
         this.vy = vy;
         this.mov = mov;
+        this.last = last;
         this.t = t;
     }
 }
@@ -153,12 +160,7 @@ class Bar {
             writable: true,
             value: void 0
         });
-        Object.defineProperty(this, "key", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: {}
-        });
+        // public key: { [x: string]: number } = {};
         Object.defineProperty(this, "pending_events", {
             enumerable: true,
             configurable: true,
@@ -193,9 +195,14 @@ class Bar {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.bar = matter_js_1.default.Bodies.rectangle(x, y, width, height, { isStatic: true });
-        this.key["ArrowDown"] = 0;
-        this.key["ArrowUp"] = 0;
+        this.bar = matter_js_1.default.Bodies.rectangle(x, y, width, height, { inertia: Infinity,
+            friction: 1,
+            restitution: 1,
+            mass: Infinity,
+            density: Infinity
+        });
+        // this.key["ArrowDown"] = 0;
+        // this.key["ArrowUp"] = 0;
         this.mov = 0;
         this.last = 0;
         this.check_nb = 0;
@@ -207,8 +214,8 @@ class Bar {
         this.last = 0;
         this.check_nb = 0;
         this.lastframe = null;
-        this.key["ArrowDown"] = 0;
-        this.key["ArrowUp"] = 0;
+        // this.key["ArrowDown"] = 0;
+        // this.key["ArrowUp"] = 0;
         matter_js_1.default.Body.setVelocity(this.bar, { x: this.x - this.bar.position.x, y: this.y - this.bar.position.y });
         matter_js_1.default.Body.setPosition(this.bar, { x: this.x, y: this.y });
         matter_js_1.default.Body.setVelocity(this.bar, { x: 0, y: 0 });
@@ -247,21 +254,14 @@ class Game {
             writable: true,
             value: void 0
         });
-        Object.defineProperty(this, "inter", {
+        Object.defineProperty(this, "last_frame", {
             enumerable: true,
             configurable: true,
             writable: true,
-            value: null
-        });
-        Object.defineProperty(this, "inter_updates", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: null
+            value: void 0
         });
         console.log("Game created");
         this.engine = matter_js_1.default.Engine.create();
-        // this.bar = new Bar(50, 300, 10, 100);
         this.engine.gravity.y = 0;
         this.walls["top"] = matter_js_1.default.Bodies.rectangle(1280 / 2, 0, 1280, 10, { isStatic: true });
         this.walls["bottom"] = matter_js_1.default.Bodies.rectangle(1280 / 2, 720, 1280, 10, { isStatic: true });
@@ -270,8 +270,7 @@ class Game {
         this.ball = new Ball(1280 / 2, 720 / 2, 10);
         matter_js_1.default.Composite.add(this.engine.world, [this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
         this.runner = matter_js_1.default.Runner.create();
-        matter_js_1.default.Runner.run(this.runner, this.engine);
-        // setInterval(this.update.bind(this), 1000/60);
+        this.last_frame = 0;
     }
     addBar(id, x, y, width, height) {
         console.log("Bar added");
@@ -285,9 +284,8 @@ class Game {
     }
     start() {
         console.log("Game started");
-        for (const bar of this.bars.values()) {
+        for (const bar of this.bars.values())
             bar.reset();
-        }
         this.ball.reset();
         matter_js_1.default.World.add(this.engine.world, this.ball.ball);
     }

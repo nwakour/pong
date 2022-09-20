@@ -23,46 +23,6 @@ const links  = new Map<string, string>()
 
 const pending_rooms : string[] = [];
 
-
-const game_update = function(game : Game) {
-	for (let bar of game.bars.values())
-	{
-		if (bar.lastframe === null)
-		{
-			bar.lastframe = new Date().getTime();
-			continue;
-		}
-		const now = new Date().getTime();
-		const diff = now - bar.lastframe;
-		bar.lastframe = now;
-		let py = bar.bar.position.y + (bar.mov * diff);
-		if (py < 51)
-			py = 51;
-		else if (py > 669)
-			py = 669;
-		Matter.Body.setVelocity(bar.bar, {x: 0, y: py - bar.bar.position.y});
-		Matter.Body.setPosition(bar.bar, {x: bar.bar.position.x, y: py});
-	}
-}
-const send_update = function(socket: SocketIO.Socket, game : Game) {
-	if (game.inter !== null)
-	{
-		const events : Snap[][] = []; 
-		for (let bar of game.bars.values())
-		{
-			if (bar.pending_events.length > 0)
-			{
-				events.push(bar.pending_events);
-				bar.pending_events = [];
-			}
-		}
-		if (events.length > 0 || game.ball.pending_events.length > 0)
-		{
-			io.to(links.get(socket.id)!).emit('update', events, game.ball.pending_events);
-			game.ball.pending_events = [];
-		}
-	}
-}
 io.on('connection', (socket: SocketIO.Socket) => {
 	
 	const check_collision = function(event : Matter.IEventCollision<Matter.Engine>) {
@@ -75,31 +35,84 @@ io.on('connection', (socket: SocketIO.Socket) => {
 				if (pair.bodyA === my_game.ball.ball || pair.bodyB === my_game.ball.ball) {
 					if (pair.bodyA === my_game.walls["top"] || pair.bodyB === my_game.walls["top"]) {
 						console.log("top");
-					my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 0, new Date().getTime()));
+					// my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 0, my_game.engine.timing.timestamp));
 					}
 					else if (pair.bodyA === my_game.walls["bottom"] || pair.bodyB === my_game.walls["bottom"]) {
 						console.log("bottom");
-						my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 1, new Date().getTime()));
+						// my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 1, my_game.engine.timing.timestamp));
 					}
 					else if (pair.bodyA === my_game.walls["left"] || pair.bodyB === my_game.walls["left"]) {
 						console.log("left");
-						my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 2, new Date().getTime()));
+						// my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 2, my_game.engine.timing.timestamp));
 					}
 					else if (pair.bodyA === my_game.walls["right"] || pair.bodyB === my_game.walls["right"]) {
 						console.log("right");
-						my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 3, new Date().getTime()));
+						// my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 3, my_game.engine.timing.timestamp));
 					}
 					else
 					{
 						console.log("bar");
-						my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 4, new Date().getTime()));
+						// my_game.ball.pending_events.push(new Snap(my_game.ball.check_nb, my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 4, my_game.engine.timing.timestamp));
+						if (pair.bodyA == my_game.ball.ball)
+						{
+							if (pair.bodyB.isStatic)
+								Matter.Body.setStatic(pair.bodyB, false);
+							else
+								Matter.Body.setStatic(pair.bodyB, true);
+						}
+						else
+						{
+							if (pair.bodyA.isStatic)
+								Matter.Body.setStatic(pair.bodyA, false);
+							else
+								Matter.Body.setStatic(pair.bodyA, true);
+						}
 					}
 				}
-				console.log(my_game.ball.pending_events[my_game.ball.pending_events.length - 1]);
-				++my_game.ball.check_nb;
+
 			}
 		}
 	}
+	const before_update = function(event : Matter.IEventCollision<Matter.Engine>) {
+		if (my_game !== undefined)
+		{
+			for (let bar of my_game.bars.values())
+			{
+				if (bar.mov !== bar.last)
+				{
+					const event_correction : Snap [] = [];
+					for (let bar of my_game.bars.values())
+					{
+						event_correction.push(new Snap(bar.bar.position.x, bar.bar.position.y, bar.bar.velocity.x, bar.bar.velocity.y, bar.mov, bar.last, event.timestamp));
+					}
+					event_correction.push(new Snap(my_game.ball.ball.position.x, my_game.ball.ball.position.y, my_game.ball.ball.velocity.x, my_game.ball.ball.velocity.y, 0, 0,event.timestamp));
+					io.to(links.get(socket.id)!).emit("correction", event_correction);
+					break;
+				}
+			}
+			
+			for (let bar of my_game.bars.values())
+			{
+				if (bar.mov !== bar.last)
+				{
+					Matter.Body.setVelocity(bar.bar, {x: 0, y: bar.mov * 20});
+					bar.last = bar.mov;
+				}
+				const pos = bar.bar.position;
+				const vel = bar.bar.velocity;
+				const new_y = pos.y + vel.y;
+				if (new_y < 70 || new_y > 650)
+					Matter.Body.setVelocity(bar.bar, {x: 0, y: 0});
+				else
+				{
+					if (bar.bar.isStatic == true)
+						Matter.Body.setPosition(bar.bar, {x: bar.bar.position.x, y: new_y});
+				}
+			}
+		}
+		
+	}
+	
 	console.log('a user connected : ' + socket.id)
 	if (!links.has(socket.id))
 	{
@@ -153,70 +166,51 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	}
 	const my_game = games.get(links.get(socket.id)!);
 	const my_bar = my_game!.bars.get(socket.id);
-	if (my_game !== undefined && my_game.bars.size === 2 && my_game.inter === null)
+	if (my_game !== undefined && my_game.bars.size === 2)
 	{
 		let vx = Math.random() * 2 + 5;
 		let vy = Math.random() * 2 + 5;
-		my_game.start();
-		Matter.Events.on(my_game.engine, 'collisionEnd', check_collision);
 		io.to(links.get(socket.id)!).emit('start', vx, vy);
-		my_game.inter = setInterval(game_update.bind(this), 1000 / 60, my_game);
-		my_game.inter_updates = setInterval(send_update.bind(this), 1000/ 60, socket, my_game);
+		my_game.start();
+		Matter.Events.on(my_game.engine, 'collisionStart', check_collision);
+		Matter.Events.on(my_game.engine, 'collisionEnd', check_collision);
+		Matter.Events.on(my_game.engine, 'beforeUpdate', before_update);
+		// Matter.Events.on(my_game.engine, 'afterUpdate', after_update);
+		
 		Matter.Body.setVelocity(my_game.ball.ball, {x: vx, y: vy});
+		Matter.Runner.run(my_game.runner, my_game.engine);
 	}
 	if (my_bar !== undefined){
-		socket.on('keydown', (key: string) => {
-			if (key === 'ArrowUp'){
-				my_bar.mov = -1;
-				my_bar.key['ArrowUp'] = 1;
+
+		socket.on('mov', (mov: number) => {
+			console.log('mov', mov);
+			if (mov > 0)
+			{
+				games.get(links.get(socket.id)!)!.bars.get(socket.id)!.mov = 1;
+				io.to(links.get(socket.id)!).except(socket.id).emit('mov', 1);
 			}
-			else if (key === 'ArrowDown'){
-				my_bar.mov = 1;
-				my_bar.key['ArrowDown'] = 1;
-			}
-			else
-				return;
-			io.to(links.get(socket.id)!).except(socket.id).emit('en_key', 'keydown', key);
-			my_bar.pending_events.push(new Snap(my_bar.check_nb, my_bar.bar.position.x, my_bar.bar.position.y, my_bar.bar.velocity.x, my_bar.bar.velocity.y, my_bar.last, new Date().getTime()));
-			console.log(my_bar.pending_events[my_bar.pending_events.length - 1]);
-			my_bar.last = my_bar.mov;
-			++my_bar.check_nb;
-		})
-		socket.on('keyup', (key: string) => {
-			if (key === 'ArrowUp'){
-				my_bar.key['ArrowUp'] = 0;
-				if (my_bar.key['ArrowDown'] === 1)
-					my_bar.mov = 1;
-				else
-					my_bar.mov = 0;
-			}
-			else if (key === 'ArrowDown'){
-				my_bar.key['ArrowDown'] = 0;
-				if (my_bar.key['ArrowUp'] === 1)
-					my_bar.mov = -1;
-				else
-					my_bar.mov = 0;
+			else if (mov < 0)
+			{
+				games.get(links.get(socket.id)!)!.bars.get(socket.id)!.mov = -1;
+				io.to(links.get(socket.id)!).except(socket.id).emit('mov', -1);
 			}
 			else
-				return;
-			io.to(links.get(socket.id)!).except(socket.id).emit('en_key', 'keyup', key);
-			my_bar.pending_events.push(new Snap(my_bar.check_nb, my_bar.bar.position.x, my_bar.bar.position.y, my_bar.bar.velocity.x, my_bar.bar.velocity.y, my_bar.last, new Date().getTime()));
-			console.log(my_bar.pending_events[my_bar.pending_events.length - 1]);
-			my_bar.last = my_bar.mov;
-			++my_bar.check_nb;
+			{
+				games.get(links.get(socket.id)!)!.bars.get(socket.id)!.mov = 0;
+				io.to(links.get(socket.id)!).except(socket.id).emit('mov', 0);
+			}
 		})
 		socket.on('disconnect', () => {
 			console.log('socket disconnected : ' + socket.id)
 
 			if (my_game !== undefined)
 			{
-				clearInterval(my_game.inter!)
-				clearInterval(my_game.inter_updates!)
-				my_game.inter = null;
-				my_game.inter_updates = null;
 				my_game.removeBar(socket.id);
 				io.sockets.in(links.get(socket.id)!).emit('remove');
+				Matter.Events.off(my_game.engine, 'collisionStart', check_collision);
 				Matter.Events.off(my_game.engine, 'collisionEnd', check_collision);
+				Matter.Events.off(my_game.engine, 'beforeUpdate', before_update);
+
 				if (my_game.bars.size === 0)
 				{	
 					console.log('game deleted');
