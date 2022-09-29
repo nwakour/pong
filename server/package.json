@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "concurrently -k \"tsc -p ./src/server -w\" \"nodemon ./dist/server/server.js\"",
+    "newdev": "nodemon ./dist/server/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

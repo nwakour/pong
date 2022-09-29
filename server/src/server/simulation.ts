@@ -1,147 +1,37 @@
 import Matter from 'matter-js'
 
-export class Snap{
-	public x : number;
-	public y : number;
-	public vx : number;
-	public vy : number;
-	public mov : number;
-	public last : number;
-	public t : number;
-	constructor(x : number, y : number, vx : number, vy : number, mov : number, last : number,t: number) {
-		this.x = x;
-		this.y = y;
-		this.vx = vx;
-		this.vy = vy;
-		this.mov = mov;
-		this.last = last;
-		this.t = t;
-	}
-}
-
-export class Ball {
-	public ball : Matter.Body;
-	public r: number;
-	public x : number;
-	public y : number;
-	public pending_events : Snap[] = [];
-	public lastframe : number | null;
-	constructor(x: number, y: number, radius: number) {
-		this.x = x;
-		this.y = y;
-		this.r = radius;
-		this.ball = Matter.Bodies.polygon(x, y, 6, radius, {inertia: Infinity,
-			friction: 0,
-			frictionStatic: 0,
-			frictionAir: 0,
-			restitution: 1});
-		this.lastframe = null;
-	}
-	reset()
-	{
-		console.log("ball reset");
-		Matter.Body.setVelocity(this.ball, {x: this.x - this.ball.position.x, y: this.y - this.ball.position.y});
-		Matter.Body.setPosition(this.ball, {x: this.x, y: this.y});
-	}
-}
-
-export class Bar {
-	public bar : Matter.Body;
-	public x : number;
-	public y : number;
-	public width: number;
-	public height: number;
-	// public key: { [x: string]: number } = {};
-	public pending_events : Snap[] = [];
-	public mov : number;
-	public last : number;
-	public lastframe : number | null;
-	constructor(x: number, y: number, width: number, height: number) {
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
-		this.bar = Matter.Bodies.rectangle(x, y, width, height, {inertia: Infinity,
-			friction: 1,
-			restitution: 1,
-			mass: Infinity,
-			density: Infinity
-		});
-		// this.key["ArrowDown"] = 0;
-		// this.key["ArrowUp"] = 0;
-		this.mov = 0;
-		this.last = 0;
-		this.lastframe = null;
-	}
-	public reset()
-	{
-		console.log("reset");
-		this.mov = 0;
-		this.last = 0;
-		this.lastframe = null;
-		// this.key["ArrowDown"] = 0;
-		// this.key["ArrowUp"] = 0;
-		Matter.Body.setVelocity(this.bar, {x: this.x - this.bar.position.x, y: this.y - this.bar.position.y});
-		Matter.Body.setPosition(this.bar, {x: this.x, y: this.y});
-		Matter.Body.setVelocity(this.bar, {x: 0, y: 0});
-	}
-}
-
 export class Game{
 	public engine : Matter.Engine;
-	public ball : Ball;
-	public bars = new Map<string, Bar>()
+	public ball : Matter.Body;
+	public bars = new Map<string, [Matter.Body, number]>()
 	public walls: { [x: string]: Matter.Body } = {};
 	public runner : Matter.Runner;
-	public last_frame : number;
+	
 	constructor(){
 		console.log("Game created");
-		this.engine = Matter.Engine.create();
-		this.engine.gravity.y = 0;
-		this.walls["top"] = Matter.Bodies.rectangle(1280/2, 0, 1280, 10, { isStatic: true });
-		this.walls["bottom"] = Matter.Bodies.rectangle(1280/2, 720, 1280, 10, { isStatic: true });
-		this.walls["left"] = Matter.Bodies.rectangle(0, 720/2, 10, 720, { isStatic: true });
-		this.walls["right"] = Matter.Bodies.rectangle(1280, 720/2, 10, 720, { isStatic: true });
-		this.ball = new Ball(1280/2, 720/2, 10);
-		Matter.Composite.add(this.engine.world, [this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
-		this.runner = Matter.Runner.create();
-		this.last_frame = 0;
+		this.engine = Matter.Engine.create( {gravity: {x: 0, y: 0}} );
+		this.walls["top"] = Matter.Bodies.rectangle(640, -250, 1800, 500, { isStatic: true });
+		this.walls["bottom"] = Matter.Bodies.rectangle(640, 970, 1800, 500, { isStatic: true });
+		this.walls["left"] = Matter.Bodies.rectangle(-250, 360, 500, 1500, { isStatic: true });
+		this.walls["right"] = Matter.Bodies.rectangle(1530, 360, 500, 1500, { isStatic: true });
+		this.ball = Matter.Bodies.circle(640, 360, 10,{inertia: Infinity,
+						friction: 0,
+						frictionStatic: 0,
+						frictionAir: 0,
+						restitution: 1});
+		Matter.Composite.add(this.engine.world, [this.ball, this.walls["top"], this.walls["bottom"], this.walls["left"], this.walls["right"]]);
+		this.runner = Matter.Runner.create({isFixed : true, delta: 16.6666666667});
 	}
 
 	public addBar(id: string, x: number, y: number, width: number, height: number){
-		console.log("Bar added");
-		this.bars.set(id, new Bar(x, y, width, height));
-		Matter.Composite.add(this.engine.world, this.bars.get(id)!.bar);
+		this.bars.set(id, [Matter.Bodies.rectangle(x, y, width, height, {inertia: Infinity, friction: 0, frictionStatic: 0, frictionAir: 0,restitution: 1}), 0]);
+		Matter.Composite.add(this.engine.world, this.bars.get(id)![0]);
 	}
 
 	public removeBar(id: string){
 		console.log("Bar removed");
-		Matter.Composite.remove(this.engine.world, this.bars.get(id)!.bar);
+		Matter.Composite.remove(this.engine.world, this.bars.get(id)![0]);
 		this.bars.delete(id);
 	}
 
-	public start(){
-		console.log("Game started");
-		for (const bar of this.bars.values())
-			bar.reset();
-		this.ball.reset();
-		Matter.World.add(this.engine.world, this.ball.ball);
-	}
-
-	public clear()
-	{
-		console.log("Clear");
-		for (const bar of this.bars.values())
-		{
-			Matter.Composite.remove(this.engine.world, bar.bar);
-		}
-		this.bars.clear();
-		Matter.Composite.remove(this.engine.world, this.walls["top"]);
-		Matter.Composite.remove(this.engine.world, this.walls["bottom"]);
-		Matter.Composite.remove(this.engine.world, this.walls["left"]);
-		Matter.Composite.remove(this.engine.world, this.walls["right"]);
-		Matter.Composite.remove(this.engine.world, this.ball.ball);
-		this.walls = {};
-		Matter.Runner.stop(this.runner);
-	}
 }
